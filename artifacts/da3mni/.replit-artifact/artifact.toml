@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "DA3MNI"
+description = "An Arabic, right-to-left creator-support platform for discovering local creators, supporting them in Iraqi dinars, and managing creator pages. The first version includes a test-only donation flow; real payment processing remains disabled until a provider is chosen and configured."
+version = "1.0.0"
+id = "artifacts/da3mni"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25598
+
+[services.development]
+run = "pnpm --filter @workspace/da3mni run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/da3mni", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/da3mni/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25598"
+BASE_PATH = "/"

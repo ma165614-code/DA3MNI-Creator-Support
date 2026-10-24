@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: creators
+    description: Creator discovery and applications
+  - name: support
+    description: Test-only support records (no money is transferred)
+  - name: platform
+    description: Public platform summaries
 paths:
   /healthz:
     get:
@@ -24,6 +30,137 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /platform/stats:
+    get:
+      operationId: getPlatformStats
+      tags: [platform]
+      summary: Get the public platform summary
+      responses:
+        "200":
+          description: Platform totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformStats"
+  /creators:
+    get:
+      operationId: listCreators
+      tags: [creators]
+      summary: List verified creators
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 60
+      responses:
+        "200":
+          description: Matching creators
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Creator"
+    post:
+      operationId: applyAsCreator
+      tags: [creators]
+      summary: Submit a creator profile application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatorApplication"
+      responses:
+        "201":
+          description: Application received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Creator"
+        "409":
+          description: Username is already taken
+  /creators/{slug}:
+    get:
+      operationId: getCreator
+      tags: [creators]
+      summary: Get a creator profile
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z0-9-]{3,30}$"
+      responses:
+        "200":
+          description: Creator profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Creator"
+        "404":
+          description: Creator not found
+  /creators/{slug}/supporters:
+    get:
+      operationId: listCreatorSupporters
+      tags: [support]
+      summary: List recent public test-support records
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z0-9-]{3,30}$"
+      responses:
+        "200":
+          description: Recent support records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SupportRecord"
+        "404":
+          description: Creator not found
+  /creators/{slug}/donations:
+    post:
+      operationId: simulateDonation
+      tags: [support]
+      summary: Record a test-only support simulation
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z0-9-]{3,30}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportInput"
+      responses:
+        "201":
+          description: Simulation recorded; no money was transferred
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportRecord"
+        "400":
+          description: Invalid support details
+        "404":
+          description: Creator not found
 components:
   schemas:
     HealthStatus:
@@ -33,4 +170,76 @@ components:
           type: string
       required:
         - status
+    Creator:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - category
+        - bio
+        - goalAmount
+        - goalRaised
+        - supporterCount
+        - status
+        - createdAt
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        slug: { type: string }
+        category: { type: string }
+        bio: { type: string }
+        goalAmount: { type: integer, minimum: 0 }
+        goalRaised: { type: integer, minimum: 0 }
+        supporterCount: { type: integer, minimum: 0 }
+        status: { type: string, enum: [pending, verified, suspended] }
+        createdAt: { type: string, format: date-time }
+    CreatorApplication:
+      type: object
+      required: [name, slug, category, bio, goalAmount]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 80 }
+        slug: { type: string, pattern: "^[a-z0-9-]{3,30}$" }
+        category: { type: string, minLength: 2, maxLength: 60 }
+        bio: { type: string, minLength: 20, maxLength: 500 }
+        goalAmount: { type: integer, minimum: 1000, maximum: 1000000000 }
+    SupportInput:
+      type: object
+      required: [amount, isAnonymous]
+      properties:
+        amount: { type: integer, minimum: 1000, maximum: 5000000 }
+        displayName: { type: ["string", "null"], maxLength: 60 }
+        isAnonymous: { type: boolean }
+        message: { type: ["string", "null"], maxLength: 240 }
+    SupportRecord:
+      type: object
+      required:
+        - id
+        - creatorId
+        - creatorSlug
+        - amount
+        - currency
+        - displayName
+        - isAnonymous
+        - message
+        - status
+        - createdAt
+      properties:
+        id: { type: integer }
+        creatorId: { type: integer }
+        creatorSlug: { type: string }
+        amount: { type: integer }
+        currency: { type: string, enum: [IQD] }
+        displayName: { type: ["string", "null"] }
+        isAnonymous: { type: boolean }
+        message: { type: ["string", "null"] }
+        status: { type: string, enum: [simulated] }
+        createdAt: { type: string, format: date-time }
+    PlatformStats:
+      type: object
+      required: [creatorCount, supportCount, totalSupportAmount]
+      properties:
+        creatorCount: { type: integer, minimum: 0 }
+        supportCount: { type: integer, minimum: 0 }
+        totalSupportAmount: { type: integer, minimum: 0 }
 
